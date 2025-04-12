@@ -11,7 +11,7 @@ app.use(express.json());
 
 const transporter = nodemailer.createTransport({
   host: "smtp.hostinger.com",
-  port: 587,
+  port: 465,
   secure: true,
   auth: {
     user: process.env.EMAIL_USER,
