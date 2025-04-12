@@ -1,4 +1,4 @@
-// Solar Homes Backend - Full Code (Matching Frontend Form)
+// Solar Homes Backend - Full Code with Debugging
 require('dotenv').config();
 
 const express = require("express");
@@ -9,6 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Setup nodemailer transporter
 const transporter = nodemailer.createTransport({
   host: "smtp.hostinger.com",
   port: 587,
@@ -19,6 +20,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Verify connection
 transporter.verify((err, success) => {
   if (err) {
     console.error("SMTP connection failed:", err);
@@ -43,6 +45,7 @@ app.post("/api/send-quote", async (req, res) => {
   const customerMailOptions = {
     from: `Solar Homes India <${process.env.EMAIL_USER}>`,
     to: email,
+    replyTo: email, // ✅ ensure reply works for customers
     subject: "Your Solar Quote – Solar Homes India",
     html: `
       <div style="font-family:sans-serif; padding:20px;">
@@ -64,27 +67,36 @@ app.post("/api/send-quote", async (req, res) => {
     to: process.env.EMAIL_USER,
     subject: `New Lead from ${fullName}`,
     text: `Name: ${fullName}
-  Phone: ${phone}
-  City: ${address}
-  Bill: ₹${monthlyBill}
-  Email: ${email}
-  Roof Type: ${roofType}
-  System Type: ${systemType}
-  Suggested Capacity: ${suggestedCapacity}
-  Notes: ${additional}`
+Phone: ${phone}
+City: ${address}
+Bill: ₹${monthlyBill}
+Email: ${email}
+Roof Type: ${roofType}
+System Type: ${systemType}
+Suggested Capacity: ${suggestedCapacity}
+Notes: ${additional}`
   };
-  
+
   try {
-    await transporter.sendMail(customerMailOptions);
-    await transporter.sendMail(internalMailOptions);
+    console.log("Sending quote to customer:", email);
+    console.log("CustomerMailOptions preview:", customerMailOptions);
+
+    const customerResult = await transporter.sendMail(customerMailOptions);
+    console.log("✅ Customer email sent:", customerResult.response);
+
+    const internalResult = await transporter.sendMail(internalMailOptions);
+    console.log("✅ Internal lead email sent:", internalResult.response);
+
     res.status(200).json({ message: "Quote sent successfully" });
   } catch (error) {
-    console.error("Error sending email:", error);
-    res.status(500).json({ message: "Failed to send quote" });
+    console.error("❌ Error sending email:", error);
+    res.status(500).json({ message: "Failed to send quote", error: error.message });
   }
 });
 
+// Set port and start server
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
