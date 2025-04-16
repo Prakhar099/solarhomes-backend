@@ -1,9 +1,10 @@
-// Solar Homes Backend - Full Code with Debugging
 require('dotenv').config();
 
 const express = require("express");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
+const { jsPDF } = require("jspdf");
+const { Buffer } = require("buffer");
 
 const app = express();
 app.use(cors());
@@ -20,7 +21,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Verify connection
+// Verify SMTP connection
 transporter.verify((err, success) => {
   if (err) {
     console.error("SMTP connection failed:", err);
@@ -29,6 +30,7 @@ transporter.verify((err, success) => {
   }
 });
 
+// API route to send quote email with optional PDF
 app.post("/api/send-quote", async (req, res) => {
   const {
     fullName,
@@ -42,11 +44,27 @@ app.post("/api/send-quote", async (req, res) => {
     suggestedCapacity
   } = req.body;
 
+  // Create PDF quotation
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Your Solar Quotation", 20, 20);
+  doc.setFontSize(12);
+  doc.text(`Name: ${fullName}`, 20, 40);
+  doc.text(`Phone: ${phone}`, 20, 50);
+  doc.text(`Email: ${email}`, 20, 60);
+  doc.text(`Monthly Bill: ₹${monthlyBill}`, 20, 70);
+  doc.text(`Roof Type: ${roofType}`, 20, 80);
+  doc.text(`System Type: ${systemType}`, 20, 90);
+  doc.text(`Suggested Capacity: ${suggestedCapacity}`, 20, 100);
+  doc.text(`Additional Info: ${additional}`, 20, 110);
+  const pdfBuffer = doc.output("arraybuffer");
+
   const customerMailOptions = {
     from: `Solar Homes India <${process.env.EMAIL_USER}>`,
     to: email,
-    replyTo: email, // ✅ ensure reply works for customers
+    replyTo: email,
     subject: "Your Solar Quote – Solar Homes India",
+    text: `Hello ${fullName},\n\nThanks for your interest in a ${systemType} rooftop solar system.\nEstimated Monthly Bill: ₹${monthlyBill}\nSuggested Capacity: ${suggestedCapacity}\nRoof Type: ${roofType}\nAdditional Info: ${additional}\n\nWe will contact you shortly.\n\n- Solar Homes India`,
     html: `
       <div style="font-family:sans-serif; padding:20px;">
         <h2>Hello ${fullName},</h2>
@@ -59,7 +77,14 @@ app.post("/api/send-quote", async (req, res) => {
         <br/>
         <p>Regards,<br/>Solar Homes India</p>
       </div>
-    `
+    `,
+    attachments: [
+      {
+        filename: "Your_Solar_Quote.pdf",
+        content: Buffer.from(pdfBuffer),
+        contentType: "application/pdf"
+      }
+    ]
   };
 
   const internalMailOptions = {
@@ -79,8 +104,6 @@ Notes: ${additional}`
 
   try {
     console.log("Sending quote to customer:", email);
-    console.log("CustomerMailOptions preview:", customerMailOptions);
-
     const customerResult = await transporter.sendMail(customerMailOptions);
     console.log("✅ Customer email sent:", customerResult.response);
 
@@ -94,7 +117,10 @@ Notes: ${additional}`
   }
 });
 
-// Set port and start server
+app.get("/", (req, res) => {
+  res.send("✅ Solar Homes API is running.");
+});
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
