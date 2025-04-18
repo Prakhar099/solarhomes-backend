@@ -1,4 +1,4 @@
-require("dotenv").config();
+require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
@@ -15,8 +15,16 @@ const transporter = nodemailer.createTransport({
   secure: false,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+transporter.verify((err, success) => {
+  if (err) {
+    console.error("SMTP connection failed:", err);
+  } else {
+    console.log("SMTP server is ready to send emails ✅");
+  }
 });
 
 app.post("/api/send-quote", async (req, res) => {
@@ -29,86 +37,106 @@ app.post("/api/send-quote", async (req, res) => {
     roofType,
     systemType,
     additional,
-    suggestedCapacity,
+    suggestedCapacity
   } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" });
-  }
+  if (!email) return res.status(400).json({ message: "Missing email" });
 
-  // Generate PDF as a buffer
-  const generatePDFBuffer = () => {
-    return new Promise((resolve, reject) => {
-      const doc = new PDFDocument();
-      const buffers = [];
-
-      doc.on("data", buffers.push.bind(buffers));
-      doc.on("end", () => resolve(Buffer.concat(buffers)));
-      doc.on("error", reject);
-
-      doc.fontSize(18).text("Solar Quote - Solar Homes India", { align: "center" });
-      doc.moveDown();
-
-      doc.fontSize(12).text(`Name: ${fullName}`);
-      doc.text(`Email: ${email}`);
-      doc.text(`Phone: ${phone}`);
-      doc.text(`Address: ${address}`);
-      doc.text(`Monthly Bill: ₹${monthlyBill}`);
-      doc.text(`Roof Type: ${roofType}`);
-      doc.text(`System Type: ${systemType}`);
-      doc.text(`Suggested Capacity: ${suggestedCapacity}`);
-      doc.text(`Additional Info: ${additional}`);
-
-      doc.end();
-    });
+  const customerMailOptions = {
+    from: `Solar Homes India <${process.env.EMAIL_USER}>`,
+    to: email,
+    replyTo: email,
+    subject: "Your Solar Quote – Solar Homes India",
+    html: `
+      <div style="font-family:sans-serif; padding:20px;">
+        <h2>Hello ${fullName},</h2>
+        <p>Thanks for your interest in a <strong>${systemType}</strong> rooftop solar system.</p>
+        <p><strong>Estimated Monthly Bill:</strong> ₹${monthlyBill}</p>
+        <p><strong>Suggested System Capacity:</strong> ${suggestedCapacity}</p>
+        <p><strong>Roof Type:</strong> ${roofType}</p>
+        <p><strong>Additional Info:</strong> ${additional}</p>
+        <p>Our team will contact you shortly with a detailed quotation.</p>
+        <br/>
+        <p>Regards,<br/>Solar Homes India</p>
+      </div>
+    `
   };
 
-  try {
-    const pdfBuffer = await generatePDFBuffer();
-
-    const customerMailOptions = {
-      from: `Solar Homes India <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your Solar Quote – Solar Homes India",
-      html: `
-        <p>Hello ${fullName},</p>
-        <p>Attached is your personalized solar quotation based on the information you provided.</p>
-        <p>Regards,<br/>Solar Homes India</p>
-      `,
-      attachments: [
-        {
-          filename: "solar-quote.pdf",
-          content: pdfBuffer,
-        },
-      ],
-    };
-
-    const internalMailOptions = {
-      from: `Website Lead <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
-      subject: `New Lead from ${fullName}`,
-      text: `Name: ${fullName}
+  const internalMailOptions = {
+    from: `Website Lead <${process.env.EMAIL_USER}>`,
+    to: process.env.EMAIL_USER,
+    subject: `New Lead from ${fullName}`,
+    text: `Name: ${fullName}
 Phone: ${phone}
+City: ${address}
+Bill: ₹${monthlyBill}
 Email: ${email}
-Address: ${address}
-Monthly Bill: ₹${monthlyBill}
 Roof Type: ${roofType}
 System Type: ${systemType}
 Suggested Capacity: ${suggestedCapacity}
-Notes: ${additional}`,
-    };
+Notes: ${additional}`
+  };
 
+  try {
     await transporter.sendMail(customerMailOptions);
     await transporter.sendMail(internalMailOptions);
-
-    res.status(200).json({ message: "Quote sent with PDF successfully" });
+    res.status(200).json({ message: "Quote sent successfully" });
   } catch (error) {
     console.error("Error sending email:", error);
     res.status(500).json({ message: "Failed to send quote", error: error.message });
   }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.post("/api/send-savings-pdf", async (req, res) => {
+  const { email, billAmount, roofArea, sunlightHours, monthly, yearly, twentyFiveYear } = req.body;
+
+  if (!email) return res.status(400).json({ message: "Missing email address" });
+
+  const doc = new PDFDocument();
+  let buffers = [];
+  doc.on("data", buffers.push.bind(buffers));
+  doc.on("end", async () => {
+    const pdfData = Buffer.concat(buffers);
+
+    const mailOptions = {
+      from: `Solar Homes India <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Your Solar Savings Report",
+      html: `
+        <div style="font-family:sans-serif;">
+          <h3>Hello!</h3>
+          <p>Find your solar savings report attached based on the values you entered.</p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: "SolarSavings_Report.pdf",
+          content: pdfData,
+          contentType: "application/pdf"
+        }
+      ]
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      res.status(200).json({ message: "PDF report sent successfully" });
+    } catch (err) {
+      console.error("Email send error:", err);
+      res.status(500).json({ message: "Failed to send email", error: err.message });
+    }
+  });
+
+  doc.fontSize(20).text("Solar Savings Report", { align: "center" });
+  doc.moveDown();
+  doc.fontSize(12).text(`Electricity Bill: ₹${billAmount}`);
+  doc.text(`Roof Area: ${roofArea} sq ft`);
+  doc.text(`Sunlight Hours: ${sunlightHours} hrs/day`);
+  doc.moveDown();
+  doc.text(`Estimated Monthly Savings: ₹${monthly}`);
+  doc.text(`Estimated Yearly Savings: ₹${yearly}`);
+  doc.text(`Estimated 25-Year Savings: ₹${twentyFiveYear}`);
+  doc.end();
 });
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
