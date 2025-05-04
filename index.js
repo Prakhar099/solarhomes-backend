@@ -1,16 +1,8 @@
 require('dotenv').config();
-<<<<<<< HEAD
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const nodemailer = require('nodemailer');
-const Invoice = require("../models/Invoice");
-=======
-const express = require("express");
-const cors = require("cors");
-const nodemailer = require("nodemailer");
-const PDFDocument = require("pdfkit");
->>>>>>> parent of 783cab7 (Corrected Version of Backend Code0)
 
 const app = express();
 app.use(cors());
@@ -104,9 +96,4 @@ app.post("/api/send-savings-pdf", async (req, res) => {
 
 // Server start
 const PORT = process.env.PORT || 10000;
-<<<<<<< HEAD
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
-
-=======
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
->>>>>>> parent of 783cab7 (Corrected Version of Backend Code0)
