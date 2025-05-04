@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const nodemailer = require('nodemailer');
+const Invoice = require("../models/Invoice");
 
 const app = express();
 const upload = multer(); // Handles multipart/form-data
@@ -75,3 +76,4 @@ app.post('/api/send-savings-pdf', upload.single('pdf'), async (req, res) => {
 // Start the server
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+
